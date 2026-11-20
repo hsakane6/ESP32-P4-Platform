@@ -82,11 +82,46 @@ void app_main(void)
     if (eth_port_cnt == 1) {
         // Use ESP_NETIF_DEFAULT_ETH when just one Ethernet interface is used and you don't need to modify
         // default esp-netif configuration parameters.
+
+        // Inserted for static address configuration, comment out if not needed
+        // Create Ethernet interface without DHCP
+        esp_netif_inherent_config_t base_cfg =
+            ESP_NETIF_INHERENT_DEFAULT_ETH();
+        base_cfg.flags &= ~ESP_NETIF_DHCP_CLIENT;
+
+        esp_netif_config_t cfg = {
+            .base = &base_cfg,
+            .stack = ESP_NETIF_NETSTACK_DEFAULT_ETH
+        };
+
+        eth_netifs[0] = esp_netif_new(&cfg);
+        eth_netif_glues[0] =
+            esp_eth_new_netif_glue(eth_handles[0]);
+
+        ESP_ERROR_CHECK(esp_netif_attach(
+            eth_netifs[0], eth_netif_glues[0]));
+
+        // Set static IPv4 address
+        esp_netif_ip_info_t ip_info = {0};
+        ip_info.ip.addr =
+            ESP_IP4TOADDR(192, 168, 10, 2);
+        ip_info.netmask.addr =
+            ESP_IP4TOADDR(255, 255, 255, 0);
+        ip_info.gw.addr = 0;
+
+        ESP_ERROR_CHECK(esp_netif_set_ip_info(
+            eth_netifs[0], &ip_info));
+
+        ESP_LOGI(TAG, "Static IP: " IPSTR,
+                IP2STR(&ip_info.ip));
+
+        /* Commented out for static address configuration
         esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
         eth_netifs[0] = esp_netif_new(&cfg);
         eth_netif_glues[0] = esp_eth_new_netif_glue(eth_handles[0]);
         // Attach Ethernet driver to TCP/IP stack
         ESP_ERROR_CHECK(esp_netif_attach(eth_netifs[0], eth_netif_glues[0]));
+        */
     } else {
         // Use ESP_NETIF_INHERENT_DEFAULT_ETH when multiple Ethernet interfaces are used and so you need to modify
         // esp-netif configuration parameters for each interface (name, priority, etc.).

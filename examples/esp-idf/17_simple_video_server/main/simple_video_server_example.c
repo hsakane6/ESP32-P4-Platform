@@ -27,6 +27,9 @@
 #include "lwip/inet.h"
 #include "lwip/apps/netbiosns.h"
 #include "example_video_common.h"
+#include "esp_netif.h"
+#include "esp_eth.h"
+#include "ethernet_init.h"
 
 #define EXAMPLE_CAMERA_VIDEO_BUFFER_NUMBER  CONFIG_EXAMPLE_CAMERA_VIDEO_BUFFER_NUMBER
 
@@ -805,6 +808,54 @@ static void initialise_mdns(void)
                                      sizeof(serviceTxtData) / sizeof(serviceTxtData[0])));
 }
 
+
+static void start_static_ethernet(void)
+{
+    esp_eth_handle_t *eth_handles = NULL;
+    uint8_t eth_count = 0;
+
+    ESP_ERROR_CHECK(
+        ethernet_init_all(&eth_handles, &eth_count));
+
+    ESP_ERROR_CHECK(
+        eth_count == 1 ? ESP_OK : ESP_ERR_INVALID_STATE);
+
+    // Create Ethernet interface without DHCP
+    esp_netif_inherent_config_t base =
+        ESP_NETIF_INHERENT_DEFAULT_ETH();
+
+    base.flags &= ~ESP_NETIF_DHCP_CLIENT;
+
+    esp_netif_config_t cfg = {
+        .base = &base,
+        .stack = ESP_NETIF_NETSTACK_DEFAULT_ETH
+    };
+
+    esp_netif_t *netif = esp_netif_new(&cfg);
+    ESP_ERROR_CHECK(netif ? ESP_OK : ESP_ERR_NO_MEM);
+
+    esp_eth_netif_glue_handle_t glue =
+        esp_eth_new_netif_glue(eth_handles[0]);
+
+    ESP_ERROR_CHECK(esp_netif_attach(netif, glue));
+
+    // Configure static IPv4 address
+    esp_netif_ip_info_t ip = {0};
+
+    ip.ip.addr =
+        ESP_IP4TOADDR(192, 168, 10, 2);
+    ip.netmask.addr =
+        ESP_IP4TOADDR(255, 255, 255, 0);
+    ip.gw.addr = 0;
+
+    ESP_ERROR_CHECK(esp_netif_set_ip_info(netif, &ip));
+
+    ESP_ERROR_CHECK(esp_eth_start(eth_handles[0]));
+
+    ESP_LOGI("static_eth", "IP: " IPSTR,
+             IP2STR(&ip.ip));
+}
+
 void app_main(void)
 {
     esp_err_t ret = nvs_flash_init();
@@ -830,7 +881,8 @@ void app_main(void)
      * Read "Establishing Wi-Fi or Ethernet Connection" section in
      * examples/protocols/README.md for more information about this function.
      */
-    ESP_ERROR_CHECK(example_connect());
+    // ESP_ERROR_CHECK(example_connect());
+    start_static_ethernet();
 
     web_cam_video_config_t config[] = {
 #if EXAMPLE_ENABLE_MIPI_CSI_CAM_SENSOR

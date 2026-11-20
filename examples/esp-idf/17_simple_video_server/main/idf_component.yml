@@ -6,8 +6,8 @@ dependencies:
   protocol_examples_common:
     path: ${IDF_PATH}/examples/common_components/protocol_examples_common
   espressif/mdns: "^1.0.3"
-  espressif/esp_wifi_remote:
-    version: ">=1.6,<2.0"
+  # espressif/esp_wifi_remote:
+  #   version: ">=1.6,<2.0"
   espressif/cjson:
     version: "^1.7.15"
     rules:
